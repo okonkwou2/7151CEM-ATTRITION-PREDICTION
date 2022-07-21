@@ -1,0 +1,904 @@
+# importing the libraries to be used
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+sns.set()
+sns.set_style("darkgrid")
+from scipy import stats
+from collections import Counter
+
+# loading and exploring the data
+DATA = pd.read_csv("/content/DATA/Final dataset Attrition.csv")
+DATA.head(10)
+
+**EXPLORATORY DATA ANALYSIS**
+
+print("The data set has {} rows and {} columns".format(DATA.shape[0], DATA.shape[1]))
+DATA.describe()
+
+# checking for missing values
+DATA.isnull()
+
+DATA["Attrition"].hist()
+print(sorted(Counter(DATA['Attrition']).items()))
+
+#Plot histogram for each continuous feature to see if transformation is necessary
+for feature in ["MonthlyIncome", "DistanceFromHome", "Age", "TotalWorkingYears", "YearsAtCompany", "YearsWithCurrManager", "YearsSinceLastPromotion"]:
+  sns.distplot(DATA[feature], kde=False)
+  plt.title("Histogram for {}".format(feature))
+  plt.show()
+
+
+
+# plotting the heatmap to view correlations
+fig = plt.figure(figsize=(20, 10))
+corr_plot = sns.heatmap(DATA.corr(method="pearson"),annot = True, cmap = 'rainbow' )
+plt.title("Data Correlation heatmap with Coefficients constants")
+plt.show()
+
+DATA.describe()
+
+#Checking for outliers (capping or flooring to remove outliers)
+def detect_outlier(feature) :
+  outliers = []
+  data = DATA[feature]
+  mean = np.mean(data)
+  std = np.std(data)
+
+
+  for y in data:
+    z_score= (y - mean)/std
+    if np.abs(z_score) > 3:
+      outliers.append(y)
+  print('\nOutlier caps for {}:' .format(feature))
+  print('  --95p: {:.1f} / {} values exceed that' .format(data.quantile(.95),
+                                                         len([i for i in data
+                                                              if 1 > data.quantile(.95)])))
+  print('  --3sd: {:.1f} / {} values exceed that'.format(mean + 3*(std), len(outliers)))
+  print('  --99p: {:.1f} / {} values exceed that'.format(data.quantile(.99),
+                                                         len([i for i in data
+                                                              if i > data.quantile(.99)])))
+
+#Determine what upperbounbd should be for continuous features
+for feat in ['Age', 'DistanceFromHome', 'MonthlyIncome', 'TotalWorkingYears', 'YearsAtCompany', 'YearsSinceLastPromotion', 'YearsWithCurrManager']:
+  detect_outlier(feat)
+
+**DATA PRE-PROCESSING**
+
+# droping irrelevant columns
+DF = DATA.drop(["Date_of_termination","Unnamed: 32","Date_of_Hire"], axis = 1)
+
+DF.columns.values
+
+DF.dtypes
+
+#Create new column
+DF['Age_Years'] = DF['Age']
+
+#Drop the age column
+DF = DF.drop('Age', axis = 1)
+
+DF
+
+#Write out data with cleaned features
+DF.to_csv("/content/DATA/Attrition_cleaned_features.csv", index = False)
+
+***Transforming skewed features***
+
+!pip install statsmodels
+
+import matplotlib.pyplot as plt
+import scipy.stats
+import statsmodels.api as sm
+import seaborn as sns
+%matplotlib inline
+
+ATTR_cleaned = pd.read_csv("/content/DATA/Attrition_cleaned_features.csv")
+ATTR_cleaned.head(5)
+# print(sorted(Counter(ATTR_cleaned['Attrition']).items()))
+
+# Generate qq plots for MonthlyIncome
+for i in [0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]:
+  data_t = ATTR_cleaned["MonthlyIncome"]**(1/i)
+  fig = sm.qqplot(data_t, line='s')
+  plt.title("Transformation: 1/{}" .format(str(i)))
+
+for i in [2, 3, 4, 5, 6, 7, 8]:
+  data_t = ATTR_cleaned["MonthlyIncome"]**(1/i)
+  n, bins, patches = plt.hist(data_t, 50, density=True)
+  mu = np.mean(data_t)
+  sigma = np.std(data_t)
+  plt.plot(bins, scipy.stats.norm.pdf(bins, mu, sigma))
+  plt.title("Transformation: 1/{}".format(str(i)))
+  plt.show()
+
+#creating the new transformed feature
+ATTR_cleaned["MonthlyIncomeTRF"] = ATTR_cleaned["MonthlyIncome"].apply(lambda x:x**(1/5))
+ATTR_cleaned.head
+
+# Generate qq plots for TotalWorkingYears
+for i in [0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]:
+  data_t = ATTR_cleaned["TotalWorkingYears"]**(1/i)
+  fig = sm.qqplot(data_t, line='s')
+  plt.title("Transformation: 1/{}" .format(str(i)))
+
+for i in [2, 3, 4, 5, 6]:
+  data_t = ATTR_cleaned["TotalWorkingYears"]**(1/i)
+  n, bins, patches = plt.hist(data_t, 50, density=True)
+  mu = np.mean(data_t)
+  sigma = np.std(data_t)
+  plt.plot(bins, scipy.stats.norm.pdf(bins, mu, sigma))
+  plt.title("Transformation: 1/{}".format(str(i)))
+  plt.show()
+
+#creating the new transformed feature
+ATTR_cleaned["TotalWorkingYearsTRF"] = ATTR_cleaned["TotalWorkingYears"].apply(lambda x:x**(1/2))
+ATTR_cleaned.head
+
+# Generate qq plots for YearsAtCompany
+for i in [0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]:
+  data_t = ATTR_cleaned["YearsAtCompany"]**(1/i)
+  fig = sm.qqplot(data_t, line='s')
+  plt.title("Transformation: 1/{}" .format(str(i)))
+
+for i in [2, 3, 4, 5]:
+  data_t = ATTR_cleaned["YearsAtCompany"]**(1/i)
+  n, bins, patches = plt.hist(data_t, 50, density=True)
+  mu = np.mean(data_t)
+  sigma = np.std(data_t)
+  plt.plot(bins, scipy.stats.norm.pdf(bins, mu, sigma))
+  plt.title("Transformation: 1/{}".format(str(i)))
+  plt.show()
+
+#creating the new transformed feature
+ATTR_cleaned["YearsAtCompanyTRF"] = ATTR_cleaned["YearsAtCompany"].apply(lambda x:x**(1/2))
+ATTR_cleaned.head
+
+#Create new CSV with transformed Feature
+ATTR_cleaned.to_csv("/content/DATA/Attrition_TRF_feature.csv", index = False)
+
+
+
+**TRANSFORMING THE CATEGORICAL FEATURES TO NUMERICAL USING ENCODING**
+
+#Transform the data by converting non-numerical columns into numerical columns
+from sklearn.preprocessing import LabelEncoder
+
+ATTRITION = pd.read_csv("/content/DATA/Attrition_TRF_feature.csv")
+ATTRITION.head()
+
+for feature in ["Attrition", "BusinessTravel", "Department", "Gender", "JobRole", "MaritalStatus",
+                "OverTime", "Higher_Education", "Status_of_leaving", "Mode_of_work", "Work_accident", "Source_of_Hire", "Job_mode"]:
+    le = LabelEncoder()
+    ATTRITION[feature] = le.fit_transform(ATTRITION[feature].astype(str))
+  
+
+ATTRITION.head()
+
+#Create new CSV with transformed Feature
+ATTRITION.to_csv("/content/DATA/Attrition_Encoded.csv", index = False)
+
+**SPLITTING DATASET INTO TRAIN, VALIDATION AND TEST SETS FOR MODELING**
+
+from sklearn.model_selection import train_test_split
+ATTRITION = pd.read_csv("/content/DATA/Attrition_Encoded.csv") 
+ATTRITION.head()
+
+features = ATTRITION.drop(["Attrition"], axis=1)
+labels = ATTRITION["Attrition"]
+
+X_train, X_test, y_train, y_test = train_test_split(features, labels, test_size=0.4, random_state = 42)
+X_val, X_test, y_val, y_test = train_test_split(X_test, y_test, test_size=0.5, random_state = 42)
+
+
+================================================================================
+
+# Confirming splitted dataset size
+for dataset in [y_train, y_val, y_test]:
+  print(round(len(dataset) / len(labels), 2))
+
+# APPLYING SMOTE TO TRAINING DATASET  TO TACKLE IMBALANCE DATASET
+!pip install imblearn
+
+from imblearn.over_sampling import SMOTE
+smote = SMOTE()
+X_train_smote, y_train_smote = smote.fit_resample(X_train.astype('float'), y_train)
+
+from collections import Counter
+print("Before SMOTE:", Counter(y_train))
+print("After SMOTE:", Counter(y_train_smote))
+
+# Writing the data 
+X_train_smote.to_csv("/content/DATA/split_data/train_smote_features.csv", index=False)
+X_train.to_csv("/content/DATA/split_data/train_features.csv", index=False)
+X_val.to_csv("/content/DATA/split_data/val_features.csv", index=False)
+X_test.to_csv("/content/DATA/split_data/test_features.csv", index=False)
+
+y_train_smote.to_csv("/content/DATA/split_data/train_smote_labels.csv", index=False)
+y_train.to_csv("/content/DATA/split_data/train_labels.csv", index=False)
+y_val.to_csv("/content/DATA/split_data/val_labels.csv", index=False)
+y_test.to_csv("/content/DATA/split_data/test_labels.csv", index=False)
+
+# STandarzing features
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+
+scaler = StandardScaler()
+scaler.fit(X_train)
+
+features = X_train.columns
+
+X_train[features] = scaler.transform(X_train[features])
+X_train_smote[features] = scaler.transform(X_train_smote[features])
+X_val[features] = scaler.transform(X_val[features])
+X_test[features] = scaler.transform(X_test[features])
+
+X_train.head()
+
+print(X_train_smote.shape, X_train.shape)
+
+X_train.columns.values
+
+# Defining the list of features to be used for each dataset
+cleaned_original_features = ['BusinessTravel', 'Department',
+       'DistanceFromHome', 'Gender', 'JobInvolvement', 'JobLevel',
+       'JobRole', 'JobSatisfaction', 'MaritalStatus', 'MonthlyIncome',
+       'NumCompaniesWorked', 'OverTime', 'PercentSalaryHike',
+       'PerformanceRating', 'StockOptionLevel', 'TotalWorkingYears',
+       'TrainingTimesLastYear', 'YearsAtCompany',
+       'YearsSinceLastPromotion', 'YearsWithCurrManager',
+       'Higher_Education', 'Status_of_leaving', 'Mode_of_work', 'Leaves',
+       'Absenteeism', 'Work_accident', 'Source_of_Hire', 'Job_mode', 'Age_Years']
+Reduced_features = ['BusinessTravel', 'Department', 'DistanceFromHome', 'Gender',
+       'JobInvolvement', 'JobLevel', 'JobSatisfaction',
+       'NumCompaniesWorked',
+       'PercentSalaryHike', 'StockOptionLevel',
+       'TrainingTimesLastYear',
+       'YearsSinceLastPromotion', 'YearsWithCurrManager',
+       'Higher_Education', 'Status_of_leaving', 'Mode_of_work', 'Leaves',
+       'Absenteeism', 'Work_accident', 'Source_of_Hire',
+       'Age_Years', 'MonthlyIncomeTRF', 'TotalWorkingYearsTRF',
+       'YearsAtCompanyTRF']
+All_features = ['BusinessTravel', 'Department', 'DistanceFromHome', 'Gender',
+       'JobInvolvement', 'JobLevel', 'JobRole', 'JobSatisfaction',
+       'MaritalStatus', 'MonthlyIncome', 'NumCompaniesWorked', 'OverTime',
+       'PercentSalaryHike', 'PerformanceRating', 'StockOptionLevel',
+       'TotalWorkingYears', 'TrainingTimesLastYear', 'YearsAtCompany',
+       'YearsSinceLastPromotion', 'YearsWithCurrManager',
+       'Higher_Education', 'Status_of_leaving', 'Mode_of_work', 'Leaves',
+       'Absenteeism', 'Work_accident', 'Source_of_Hire', 'Job_mode',
+       'Age_Years', 'MonthlyIncomeTRF', 'TotalWorkingYearsTRF',
+       'YearsAtCompanyTRF']
+
+#Write out final data for each feature set
+
+X_train_smote[cleaned_original_features].to_csv("/content/DATA/final_data/smote_clean_features.csv", index=False)
+X_train[cleaned_original_features].to_csv("/content/DATA/final_data/train_clean_features.csv", index=False)
+X_val[cleaned_original_features].to_csv("/content/DATA/final_data/val_clean_features.csv", index=False)
+X_test[cleaned_original_features].to_csv("/content/DATA/final_data/test_clean_features.csv", index=False)
+
+X_train_smote[Reduced_features].to_csv("/content/DATA/final_data/smote_reduced_features.csv", index=False)
+X_train[Reduced_features].to_csv("/content/DATA/final_data/train_reduced_features.csv", index=False)
+X_val[Reduced_features].to_csv("/content/DATA/final_data/val_reduced_features.csv", index=False)
+X_test[Reduced_features].to_csv("/content/DATA/final_data/test_reduced_features.csv", index=False)
+
+X_train_smote[All_features].to_csv("/content/DATA/final_data/smote_All_features.csv", index=False)
+X_train[All_features].to_csv("/content/DATA/final_data/train_All_features.csv", index=False)
+X_val[All_features].to_csv("/content/DATA/final_data/val_All_features.csv", index=False)
+X_test[All_features].to_csv("/content/DATA/final_data/test_All_features.csv", index=False)
+
+#Read in all labels
+y_train_smote.to_csv("/content/DATA/final_data/smote_labels.csv", index=False)
+y_train.to_csv("/content/DATA/final_data/train_labels.csv", index=False)
+y_val.to_csv("/content/DATA/final_data/val_labels.csv", index=False)
+y_test.to_csv("/content/DATA/final_data/test_labels.csv", index=False)
+
+**BUILDING THE MODEL TO COMPARE FEATURES: SMOTE CLEANED FEATURES**
+
+from pandas.errors import InvalidIndexError
+import joblib
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import GridSearchCV
+%matplotlib inline
+
+
+SMOTE_cleaned_features = pd.read_csv("/content/DATA/final_data/smote_clean_features.csv")
+SMOTE_labels = pd.read_csv("/content/DATA/final_data/smote_labels.csv")
+
+SMOTE_cleaned_features.head()
+
+
+
+#Generate correlation matrix heatmap
+matrix = np.triu(SMOTE_cleaned_features.corr())
+fig = plt.figure(figsize=(20, 10))
+sns.heatmap(SMOTE_cleaned_features.corr(), annot=True, fmt='.1f', vmin=-1, vmax=1, center= 0, cmap='coolwarm', mask=None)
+
+# GRIDSEARCHCV
+def print_results(results):
+  print('BEST PARAMS: {}\n' .format(results.best_params_))
+
+  means = results.cv_results_['mean_test_score']
+  stds = results.cv_results_['std_test_score']
+  for mean, std, params in zip(means, stds, results.cv_results_['params']):
+    print('{} (+/-{}) for {}' .format(round(mean, 3), round(std * 2, 3), params))
+
+
+#Conduct search for best parameter while running cross-validation (GridSearchCV)
+rf = RandomForestClassifier()
+parameters = {
+    'n_estimators': [2**i for i in range(3, 10)],
+    'max_depth': [2, 4, 8, 16, 32, None]
+}
+cv = GridSearchCV(rf, parameters, cv=5)
+cv.fit(SMOTE_cleaned_features, SMOTE_labels.values.ravel())
+
+print_results(cv)
+
+# 0.914 (+/-0.271) for {'max_depth': 16, 'n_estimators': 128}
+# feature importance
+feat_imp = cv.best_estimator_.feature_importances_
+indices = np.argsort(feat_imp)
+fig = plt.figure(figsize=(10, 10))
+plt.yticks(range(len(indices)), [SMOTE_cleaned_features.columns[i] for i in indices])
+plt.barh(range(len(indices)), feat_imp[indices], color='b', align='center')
+plt.show()
+
+joblib.dump(cv.best_estimator_, "/content/models/mdl_smote_clean_features.pkl")
+
+**TRAIN CLEANED FEATURES**
+
+train_cleaned_features = pd.read_csv("/content/DATA/final_data/train_clean_features.csv")
+train_labels = pd.read_csv("/content/DATA/final_data/train_labels.csv")
+
+train_cleaned_features.head()
+
+#Generate correlation matrix heatmap
+matrix = np.triu(train_cleaned_features.corr())
+fig = plt.figure(figsize=(20, 10))
+sns.heatmap(train_cleaned_features.corr(), annot=True, fmt='.1f', vmin=-1, vmax=1, center= 0, cmap='coolwarm')
+
+# GRIDSEARCHCV
+def print_results(results):
+  print('BEST PARAMS: {}\n' .format(results.best_params_))
+
+  means = results.cv_results_['mean_test_score']
+  stds = results.cv_results_['std_test_score']
+  for mean, std, params in zip(means, stds, results.cv_results_['params']):
+    print('{} (+/-{}) for {}' .format(round(mean, 3), round(std * 2, 3), params))
+
+
+#Conduct search for best parameter while running cross-validation (GridSearchCV)
+rf = RandomForestClassifier()
+parameters = {
+    'n_estimators': [2**i for i in range(3, 10)],
+    'max_depth': [2, 4, 8, 16, 32, None]
+}
+cv = GridSearchCV(rf, parameters, cv=5)
+cv.fit(train_cleaned_features, train_labels.values.ravel())
+
+print_results(cv)
+
+# 0.914 (+/-0.271) for {'max_depth': 16, 'n_estimators': 128}
+# feature importance
+feat_imp = cv.best_estimator_.feature_importances_
+indices = np.argsort(feat_imp)
+fig = plt.figure(figsize=(10, 10))
+plt.yticks(range(len(indices)), [train_cleaned_features.columns[i] for i in indices])
+plt.barh(range(len(indices)), feat_imp[indices], color='b', align='center')
+plt.show()
+
+joblib.dump(cv.best_estimator_, "/content/models/mdl_train_clean_features.pkl")
+
+**SMOTE REDUCED FEATURES**
+
+
+SMOTE_reduced_features = pd.read_csv("/content/DATA/final_data/smote_reduced_features.csv")
+SMOTE_labels = pd.read_csv("/content/DATA/final_data/smote_labels.csv")
+
+SMOTE_reduced_features.head()
+
+#Generate correlation matrix heatmap
+matrix = np.triu(SMOTE_reduced_features.corr())
+fig = plt.figure(figsize=(20, 10))
+sns.heatmap(SMOTE_reduced_features.corr(), annot=True, fmt='.1f', vmin=-1, vmax=1, center= 0, cmap='coolwarm', mask=None)
+
+# GRIDSEARCHCV
+def print_results(results):
+  print('BEST PARAMS: {}\n' .format(results.best_params_))
+
+  means = results.cv_results_['mean_test_score']
+  stds = results.cv_results_['std_test_score']
+  for mean, std, params in zip(means, stds, results.cv_results_['params']):
+    print('{} (+/-{}) for {}' .format(round(mean, 3), round(std * 2, 3), params))
+
+
+#Conduct search for best parameter while running cross-validation (GridSearchCV)
+rf = RandomForestClassifier()
+parameters = {
+    'n_estimators': [2**i for i in range(3, 10)],
+    'max_depth': [2, 4, 8, 16, 32, None]
+}
+cv = GridSearchCV(rf, parameters, cv=5)
+cv.fit(SMOTE_reduced_features, SMOTE_labels.values.ravel())
+
+print_results(cv)
+
+# 0.914 (+/-0.271) for {'max_depth': 16, 'n_estimators': 128}
+# feature importance
+feat_imp = cv.best_estimator_.feature_importances_
+indices = np.argsort(feat_imp)
+fig = plt.figure(figsize=(10, 10))
+plt.yticks(range(len(indices)), [SMOTE_reduced_features.columns[i] for i in indices])
+plt.barh(range(len(indices)), feat_imp[indices], color='b', align='center')
+plt.show()
+
+joblib.dump(cv.best_estimator_, "/content/models/mdl_smote_reduced_features.pkl")
+
+=======**TRAIN REDUCED FEATURES**=======
+
+
+
+
+train_reduced_features = pd.read_csv("/content/DATA/final_data/train_reduced_features.csv")
+train_labels = pd.read_csv("/content/DATA/final_data/train_labels.csv")
+
+train_reduced_features.head()
+
+#Generate correlation matrix heatmap
+matrix = np.triu(train_reduced_features.corr())
+fig = plt.figure(figsize=(20, 10))
+sns.heatmap(train_reduced_features.corr(), annot=True, fmt='.1f', vmin=-1, vmax=1, center= 0, cmap='coolwarm', mask=None)
+
+# GRIDSEARCHCV
+def print_results(results):
+  print('BEST PARAMS: {}\n' .format(results.best_params_))
+
+  means = results.cv_results_['mean_test_score']
+  stds = results.cv_results_['std_test_score']
+  for mean, std, params in zip(means, stds, results.cv_results_['params']):
+    print('{} (+/-{}) for {}' .format(round(mean, 3), round(std * 2, 3), params))
+
+
+#Conduct search for best parameter while running cross-validation (GridSearchCV)
+rf = RandomForestClassifier()
+parameters = {
+    'n_estimators': [2**i for i in range(3, 10)],
+    'max_depth': [2, 4, 8, 16, 32, None]
+}
+cv = GridSearchCV(rf, parameters, cv=5)
+cv.fit(train_reduced_features, train_labels.values.ravel())
+
+print_results(cv)
+
+
+# feature importance
+feat_imp = cv.best_estimator_.feature_importances_
+indices = np.argsort(feat_imp)
+fig = plt.figure(figsize=(10, 10))
+plt.yticks(range(len(indices)), [train_reduced_features.columns[i] for i in indices])
+plt.barh(range(len(indices)), feat_imp[indices], color='b', align='center')
+plt.show()
+
+joblib.dump(cv.best_estimator_, "/content/models/mdl_train_reduced_features.pkl")
+
+**========SMOTE ALL FEATURES=========**
+
+
+
+
+SMOTE_All_features = pd.read_csv("/content/DATA/final_data/smote_All_features.csv")
+SMOTE_labels = pd.read_csv("/content/DATA/final_data/smote_labels.csv")
+
+SMOTE_All_features.head()
+
+#Generate correlation matrix heatmap
+matrix = np.triu(SMOTE_All_features.corr())
+fig = plt.figure(figsize=(20, 10))
+sns.heatmap(SMOTE_All_features.corr(), annot=True, fmt='.1f', vmin=-1, vmax=1, center= 0, cmap='coolwarm', mask=None)
+
+# GRIDSEARCHCV
+def print_results(results):
+  print('BEST PARAMS: {}\n' .format(results.best_params_))
+
+  means = results.cv_results_['mean_test_score']
+  stds = results.cv_results_['std_test_score']
+  for mean, std, params in zip(means, stds, results.cv_results_['params']):
+    print('{} (+/-{}) for {}' .format(round(mean, 3), round(std * 2, 3), params))
+
+
+#Conduct search for best parameter while running cross-validation (GridSearchCV)
+rf = RandomForestClassifier()
+parameters = {
+    'n_estimators': [2**i for i in range(3, 10)],
+    'max_depth': [2, 4, 8, 16, 32, None]
+}
+cv = GridSearchCV(rf, parameters, cv=5)
+cv.fit(SMOTE_All_features, SMOTE_labels.values.ravel())
+
+print_results(cv)
+
+
+# feature importance
+feat_imp = cv.best_estimator_.feature_importances_
+indices = np.argsort(feat_imp)
+fig = plt.figure(figsize=(10, 10))
+plt.yticks(range(len(indices)), [SMOTE_All_features.columns[i] for i in indices])
+plt.barh(range(len(indices)), feat_imp[indices], color='b', align='center')
+plt.show()
+
+joblib.dump(cv.best_estimator_, "/content/models/mdl_smote_All_features.pkl")
+
+**=======TRAIN ALL FEATURES COMBINED=========**
+
+
+
+
+train_All_features = pd.read_csv("/content/DATA/final_data/train_All_features.csv")
+train_labels = pd.read_csv("/content/DATA/final_data/train_labels.csv")
+
+train_All_features.head()
+
+#Generate correlation matrix heatmap
+matrix = np.triu(train_All_features.corr())
+fig = plt.figure(figsize=(20, 10))
+sns.heatmap(train_All_features.corr(), annot=True, fmt='.1f', vmin=-1, vmax=1, center= 0, cmap='coolwarm', mask=None)
+
+# GRIDSEARCHCV
+def print_results(results):
+  print('BEST PARAMS: {}\n' .format(results.best_params_))
+
+  means = results.cv_results_['mean_test_score']
+  stds = results.cv_results_['std_test_score']
+  for mean, std, params in zip(means, stds, results.cv_results_['params']):
+    print('{} (+/-{}) for {}' .format(round(mean, 3), round(std * 2, 3), params))
+
+#Conduct search for best parameter while running cross-validation (GridSearchCV)
+rf = RandomForestClassifier()
+parameters = {
+    'n_estimators': [2**i for i in range(3, 10)],
+    'max_depth': [2, 4, 8, 16, 32, None]
+}
+cv = GridSearchCV(rf, parameters, cv=5)
+cv.fit(train_All_features, train_labels.values.ravel())
+
+print_results(cv)
+
+
+# feature importance
+feat_imp = cv.best_estimator_.feature_importances_
+indices = np.argsort(feat_imp)
+fig = plt.figure(figsize=(10, 10))
+plt.yticks(range(len(indices)), [train_All_features.columns[i] for i in indices])
+plt.barh(range(len(indices)), feat_imp[indices], color='b', align='center')
+plt.show()
+
+joblib.dump(cv.best_estimator_, "/content/models/mdl_train_All_features.pkl")
+
+**COMPARING AND EVALUATING ALL 6 MODELS**
+
+import joblib
+import pandas as pd 
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix
+from time import time
+%matplotlib inline
+
+val_cleaned_features = pd.read_csv("/content/DATA/final_data/val_clean_features.csv")
+val_reduced_features = pd.read_csv("/content/DATA/final_data/val_reduced_features.csv")
+val_All_features = pd.read_csv("/content/DATA/final_data/val_All_features.csv")
+
+val_labels = pd.read_csv("/content/DATA/final_data/val_labels.csv")
+
+val_cleaned_features.head()
+
+# Read in models?
+models = {}
+for mdl in ["smote_All", "smote_clean", "smote_reduced", "train_All", "train_clean", "train_reduced"]:
+  models[mdl] = joblib.load("/content/models/mdl_{}_features.pkl".format(mdl))
+
+def evaluate_model(name, model, features, labels):
+  start = time()
+  pred = model.predict(features)
+  end = time()
+  accuracy = round(accuracy_score(labels, pred), 3)
+  precision = round(precision_score(labels, pred), 3)
+  recall = round(recall_score(labels, pred), 3)
+  f1score = round(f1_score(labels, pred), 3)
+  roc_auc = round(roc_auc_score(labels, pred), 3)
+  print('{} --\tAccuraccy: {} / Precision: {} / Recall: {} / f1score: {} / roc_auc: {} / Latency: {}ms' .format(name,
+                                                                                                                accuracy,
+                                                                                                                precision,
+                                                                                                                recall,
+                                                                                                                f1score,
+                                                                                                                roc_auc,
+                                                                                                                round((end - start)*1000, 1)))
+                                                                                                  
+
+# Evaluate all models on validation set
+evaluate_model("SMOTE_ALL", models["smote_All"], val_All_features, val_labels)
+evaluate_model("SMOTE_CLEAN", models["smote_clean"], val_cleaned_features, val_labels)
+evaluate_model("SMOTE_REDUCED", models["smote_reduced"], val_reduced_features, val_labels)
+evaluate_model("TRAIN_ALL", models["train_All"], val_All_features, val_labels)
+evaluate_model("TRAIN_CLEAN", models["train_clean"], val_cleaned_features, val_labels)
+evaluate_model("TRAIN_REDUCED", models["train_reduced"], val_reduced_features, val_labels)
+
+**EVALUATING BEST MODEL ON THE TEST SET**
+
+test_All_features = pd.read_csv("/content/DATA/final_data/test_All_features.csv")
+test_features = pd.read_csv("/content/DATA/final_data/test_clean_features.csv")
+test_labels = pd.read_csv("/content/DATA/final_data/test_labels.csv")
+
+#Evaluating our final model on the test set
+evaluate_model("SMOTE_CLEAN", models["smote_clean"], test_features, test_labels)
+evaluate_model("SMOTE_ALL", models["smote_All"], test_All_features, test_labels)
+
+
+
+**LOGISTIC REGRESSION**
+
+from sklearn.linear_model import LogisticRegression
+
+SMOTE_All_features = pd.read_csv("/content/DATA/final_data/smote_All_features.csv")
+SMOTE_labels = pd.read_csv("/content/DATA/final_data/smote_labels.csv")
+
+SMOTE_All_features.head()
+
+#Generate correlation matrix heatmap
+matrix = np.triu(SMOTE_All_features.corr())
+fig = plt.figure(figsize=(20, 10))
+sns.heatmap(SMOTE_All_features.corr(), annot=True, fmt='.1f', vmin=-1, vmax=1, center= 0, cmap='coolwarm', mask=None)
+
+# GRIDSEARCHCV
+def print_results(results):
+  print('BEST PARAMS: {}\n' .format(results.best_params_))
+
+  means = results.cv_results_['mean_test_score']
+  stds = results.cv_results_['std_test_score']
+  for mean, std, params in zip(means, stds, results.cv_results_['params']):
+    print('{} (+/-{}) for {}' .format(round(mean, 3), round(std * 2, 3), params))
+
+
+#Conduct search for best parameter while running cross-validation (GridSearchCV)
+lr = LogisticRegression()
+parameters = {
+    'penalty': ['l1', 'l2'],
+    'C': [0.01, 0.1, 1, 10, 100]
+}
+cv = GridSearchCV(lr, parameters, cv=5)
+cv.fit(SMOTE_All_features, SMOTE_labels.values.ravel())
+
+print_results(cv)
+
+
+# # feature importance
+# feat_imp = cv.best_estimator_.feature_importances_
+# indices = np.argsort(feat_imp)
+# fig = plt.figure(figsize=(10, 10))
+# plt.yticks(range(len(indices)), [SMOTE_All_features.columns[i] for i in indices])
+# plt.barh(range(len(indices)), feat_imp[indices], color='b', align='center')
+# plt.show()
+
+joblib.dump(cv.best_estimator_, "/content/models/lrmdl_smote_All_features.pkl")
+
+
+
+import joblib
+import pandas as pd 
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix
+from time import time
+%matplotlib inline
+
+# val_cleaned_features = pd.read_csv("/content/DATA/final_data/val_clean_features.csv")
+# val_reduced_features = pd.read_csv("/content/DATA/final_data/val_reduced_features.csv")
+val_All_features = pd.read_csv("/content/DATA/final_data/val_All_features.csv")
+
+val_labels = pd.read_csv("/content/DATA/final_data/val_labels.csv")
+
+val_All_features.head()
+
+# Read in models?
+models = {}
+for mdl in ["smote_All"]:
+  models[mdl] = joblib.load("/content/models/lrmdl_smote_All_features.pkl".format(mdl))
+
+def evaluate_model(name, model, features, labels):
+  start = time()
+  pred = model.predict(features)
+  end = time()
+  accuracy = round(accuracy_score(labels, pred), 3)
+  precision = round(precision_score(labels, pred), 3)
+  recall = round(recall_score(labels, pred), 3)
+  f1score = round(f1_score(labels, pred), 3)
+  roc_auc = round(roc_auc_score(labels, pred), 3)
+  print('{} --\tAccuraccy: {} / Precision: {} / Recall: {} / f1score: {} / roc_auc: {} / Latency: {}ms' .format(name,
+                                                                                                                accuracy,
+                                                                                                                precision,
+                                                                                                                recall,
+                                                                                                                f1score,
+                                                                                                                roc_auc,
+                                                                                                                round((end - start)*1000, 1)))
+                                                                                                  
+
+# Evaluate all models on validation set
+evaluate_model("SMOTE_ALL", models["smote_All"], val_All_features, val_labels)
+# evaluate_model("SMOTE_CLEAN", models["smote_clean"], val_cleaned_features, val_labels)
+# evaluate_model("SMOTE_REDUCED", models["smote_reduced"], val_reduced_features, val_labels)
+# evaluate_model("TRAIN_ALL", models["train_All"], val_All_features, val_labels)
+# evaluate_model("TRAIN_CLEAN", models["train_clean"], val_cleaned_features, val_labels)
+# evaluate_model("TRAIN_REDUCED", models["train_reduced"], val_reduced_features, val_labels)
+
+test_All_features = pd.read_csv("/content/DATA/final_data/test_All_features.csv")
+# test_features = pd.read_csv("/content/DATA/final_data/test_clean_features.csv")
+test_labels = pd.read_csv("/content/DATA/final_data/test_labels.csv")
+
+#Evaluating our final model on the test set
+# evaluate_model("SMOTE_CLEAN", models["smote_clean"], test_features, test_labels)
+evaluate_model("SMOTE_ALL", models["smote_All"], test_All_features, test_labels)
+
+# SMOTE_CLEAN --	Accuraccy: 0.85 / Precision: 0.481 / Recall: 0.302 / f1score: 0.371 / roc_auc: 0.623 / Latency: 15.0ms
+# SMOTE_ALL --	Accuraccy: 0.871 / Precision: 0.619 / Recall: 0.302 / f1score: 0.406 / roc_auc: 0.635 / Latency: 47.0ms
+
+**===========SVM==========**
+
+from sklearn.model_selection import train_test_split
+ATTRITION = pd.read_csv("/content/DATA/Attrition_Encoded.csv") 
+ATTRITION.head()
+
+features = ATTRITION.drop(["Attrition"], axis=1)
+labels = ATTRITION["Attrition"]
+
+X_train, X_test, y_train, y_test = train_test_split(features, labels, test_size=0.3, random_state = 419)
+
+# APPLYING SMOTE TO TRAINING DATASET  TO TACKLE IMBALANCE DATASET
+from imblearn.over_sampling import SMOTE
+from collections import Counter
+smote = SMOTE()
+X_train_smote, y_train_smote = smote.fit_resample(X_train.astype('float'), y_train)
+
+
+print("Before SMOTE:", Counter(y_train))
+print("After SMOTE:", Counter(y_train_smote))
+
+# STandarzing features
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+
+scaler = StandardScaler()
+scaler.fit(X_train)
+
+features = X_train.columns
+# X_train_smote[features] = scaler.transform(X_train_smote[features])
+X_train[features] = scaler.transform(X_train[features])
+X_test[features] = scaler.transform(X_test[features])
+
+features2 = X_train_smote.columns
+X_train_smote[features2] = scaler.transform(X_train_smote[features2])
+
+print(X_train_smote.shape, X_train.shape), (y_train_smote.shape, y_train.shape)
+print(X_test.shape, y_test.shape)
+
+print(y_train_smote.shape)
+
+# Defining the list of features to be used for each dataset
+features = ['BusinessTravel', 'Department', 'DistanceFromHome', 'Gender',
+       'JobInvolvement', 'JobLevel', 'JobRole', 'JobSatisfaction',
+       'MaritalStatus', 'MonthlyIncome', 'NumCompaniesWorked', 'OverTime',
+       'PercentSalaryHike', 'PerformanceRating', 'StockOptionLevel',
+       'TotalWorkingYears', 'TrainingTimesLastYear', 'YearsAtCompany',
+       'YearsSinceLastPromotion', 'YearsWithCurrManager',
+       'Higher_Education', 'Status_of_leaving', 'Mode_of_work', 'Leaves',
+       'Absenteeism', 'Work_accident', 'Source_of_Hire', 'Job_mode',
+       'Age_Years', 'MonthlyIncomeTRF', 'TotalWorkingYearsTRF',
+       'YearsAtCompanyTRF']
+
+X_train_smote[features].to_csv("/content/DATA/final_data/smote_features.csv", index=False)
+y_train_smote.to_csv("/content/DATA/final_data/smotelabels.csv", index=False)
+
+X_test[features].to_csv("/content/DATA/final_data/test_features.csv", index=False)
+y_test.to_csv("/content/DATA/final_data/testlabels.csv", index=False)
+
+X_train[features].to_csv("/content/DATA/final_data/train_features.csv", index=False)
+y_train.to_csv("/content/DATA/final_data/trainlabels.csv", index=False)
+
+**BUILDING THE MODEL:SVM ON SMOTE FEATURES**
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+%matplotlib inline
+
+
+SMOTE_features = pd.read_csv("/content/DATA/final_data/smote_features.csv")
+SMOTE_labels = pd.read_csv("/content/DATA/final_data/smotelabels.csv")
+TEST_features = pd.read_csv("/content/DATA/final_data/test_features.csv")
+TEST_labels = pd.read_csv("/content/DATA/final_data/testlabels.csv")
+
+
+print(SMOTE_labels.shape)
+
+#Generate correlation matrix heatmap
+matrix = np.triu(SMOTE_features.corr())
+fig = plt.figure(figsize=(20, 10))
+sns.heatmap(SMOTE_cleaned_features.corr(), annot=True, fmt='.1f', vmin=-1, vmax=1, center= 0, cmap='coolwarm', mask=None)
+
+from sklearn.svm import SVC
+from sklearn import metrics
+SVM_model = SVC(kernel="linear", probability=True)
+
+SVM_model.fit(SMOTE_features, SMOTE_labels.values.ravel())
+y_predict = SVM_model.predict(TEST_features)
+
+from sklearn.metrics import confusion_matrix
+confusion_mat = confusion_matrix(TEST_labels, y_predict)
+sns.heatmap(confusion_mat, annot=True, )
+plt.xlabel("Predicted Label")
+plt.ylabel("True Label")
+plt.title("CONFUSION MATRIX")
+plt.show()
+
+# assigning values to True Positives, False Negative etc
+TP = confusion_mat[1, 1]
+TN = confusion_mat[0, 0]
+FP = confusion_mat[0, 1]
+FN = confusion_mat[1, 0]
+
+Accuracy = (TP+TN)/(TP+TN+FP+FN)
+Precision = TP/(TP+FP)
+Recall = TP/(TP+FN)
+Specificity = TN/(TN+FP)
+false_positive_rate = 1 - Specificity
+
+print('Model Accuracy:',round(Accuracy,4))
+print('-->Model Precision:',round(Precision,4))
+print('--> Model Recall/TPR:',round(Recall,4))
+print('--> Model Specificity:',round(Specificity,4))
+print('--> Model FPR: ', round(false_positive_rate,4))
+
+from sklearn.metrics import roc_auc_score
+auc_score = roc_auc_score(TEST_labels, y_predict)
+auc_score
+
+# WITHOUT SMOTE
+TRAIN_features = pd.read_csv("/content/DATA/final_data/train_features.csv")
+TRAIN_labels = pd.read_csv("/content/DATA/final_data/trainlabels.csv")
+
+# FITTING THE MODEL TO TRAIN SET
+SVM_model.fit(TRAIN_features, TRAIN_labels.values.ravel())
+y_predict = SVM_model.predict(TEST_features)
+
+# PLOTTING CONFUSION MATRIX
+from sklearn.metrics import confusion_matrix
+confusion_mat = confusion_matrix(TEST_labels, y_predict)
+sns.heatmap(confusion_mat, annot=True, )
+plt.xlabel("Predicted Label")
+plt.ylabel("True Label")
+plt.title("CONFUSION MATRIX")
+plt.show()
+
+# assigning values to True Positives, False Negative etc
+TP = confusion_mat[1, 1]
+TN = confusion_mat[0, 0]
+FP = confusion_mat[0, 1]
+FN = confusion_mat[1, 0]
+
+Accuracy = (TP+TN)/(TP+TN+FP+FN)
+Precision = TP/(TP+FP)
+Recall = TP/(TP+FN)
+Specificity = TN/(TN+FP)
+false_positive_rate = 1 - Specificity
+
+print('Model Accuracy:',round(Accuracy,4))
+print('-->Model Precision:',round(Precision,4))
+print('--> Model Recall/TPR:',round(Recall,4))
+print('--> Model Specificity:',round(Specificity,4))
+print('--> Model FPR: ', round(false_positive_rate,4))
+
+from sklearn.metrics import roc_auc_score
+auc_score = roc_auc_score(TEST_labels, y_predict)
+auc_score
