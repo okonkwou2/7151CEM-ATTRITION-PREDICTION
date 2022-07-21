@@ -1,0 +1,35 @@
+#########determining predictive power of categorical variable using chi-square
+import pandas as pd
+from sklearn.feature_selection import chi2,SelectKBest
+from sklearn.preprocessing import OrdinalEncoder
+import math
+
+# loading and exploring the data
+DATA = pd.read_csv("/content/DATA/Final dataset Attrition.csv")
+DATA.head(10)
+
+enc = OrdinalEncoder()
+enc.fit(DATA[["Attrition", "BusinessTravel", "Department", "Gender", "JobRole", "MaritalStatus",
+                "OverTime", "Higher_Education", "Status_of_leaving", "Mode_of_work", "Work_accident", "Source_of_Hire", "Job_mode"]])
+
+DATA[["Attrition", "BusinessTravel", "Department", "Gender", "JobRole", "MaritalStatus",
+                "OverTime", "Higher_Education", "Status_of_leaving", "Mode_of_work", "Work_accident", "Source_of_Hire", "Job_mode"]] = enc.transform(DATA[["Attrition", "BusinessTravel", "Department", "Gender", "JobRole", "MaritalStatus",
+                "OverTime", "Higher_Education", "Status_of_leaving", "Mode_of_work", "Work_accident", "Source_of_Hire", "Job_mode"]])
+
+X = DATA[["BusinessTravel", "Department", "Gender", "JobRole", "MaritalStatus",
+                "OverTime", "Higher_Education", "Status_of_leaving", "Mode_of_work", "Work_accident", "Source_of_Hire", "Job_mode"]]
+y = DATA[["Attrition"]]
+
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=123)
+
+f_score = chi2(X_train, y_train)
+f_score
+
+pvalues = pd.Series(f_score[1])
+pvalues.index =X_train.columns
+pvalues
+
+pvalues.sort_values(ascending=False)
+
+===============================================================================================
